@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  descriptionPreview,
   dueInfo,
   formatDuration,
   groupByProject,
   plainTitle,
   priorityColor,
   priorityLabel,
+  projectColor,
   taskDurationMinutes,
   taskUrl,
   totalDurationMinutes,
@@ -112,16 +114,33 @@ describe("groupByProject", () => {
 describe("dueInfo", () => {
   const now = new Date(2026, 10, 18, 12, 0); // Wed Nov 18 2026, local time
   it("labels today, tomorrow, yesterday and overdue", () => {
-    expect(dueInfo({ date: "2026-11-18", is_recurring: false }, now, "en-US")).toEqual({ label: "Today", overdue: false, isToday: true });
+    expect(dueInfo({ date: "2026-11-18", is_recurring: false }, now, "en-US")).toEqual({ label: "Today", overdue: false, isToday: true, tone: "today" });
     expect(dueInfo({ date: "2026-11-19", is_recurring: false }, now, "en-US")?.label).toBe("Tomorrow");
-    expect(dueInfo({ date: "2026-11-17", is_recurring: false }, now, "en-US")).toEqual({ label: "Yesterday", overdue: true, isToday: false });
-    expect(dueInfo({ date: "2026-11-02", is_recurring: false }, now, "en-US")).toEqual({ label: "Nov 2", overdue: true, isToday: false });
+    expect(dueInfo({ date: "2026-11-17", is_recurring: false }, now, "en-US")).toEqual({ label: "Yesterday", overdue: true, isToday: false, tone: "overdue" });
+    expect(dueInfo({ date: "2026-11-02", is_recurring: false }, now, "en-US")).toEqual({ label: "Nov 2", overdue: true, isToday: false, tone: "overdue" });
     expect(dueInfo({ date: "2027-01-05", is_recurring: false }, now, "en-US")?.label).toBe("Jan 5, 2027");
   });
   it("adds the time for floating datetimes", () => {
     expect(dueInfo({ date: "2026-11-18", datetime: "2026-11-18T14:30:00", is_recurring: false }, now, "en-US")?.label).toBe("Today 2:30 PM");
   });
+  it("uses Todoist's date tones", () => {
+    expect(dueInfo({ date: "2026-11-19", is_recurring: false }, now)?.tone).toBe("tomorrow");
+    expect(dueInfo({ date: "2026-11-24", is_recurring: false }, now)?.tone).toBe("week");
+    expect(dueInfo({ date: "2026-11-25", is_recurring: false }, now)?.tone).toBe("later");
+  });
   it("returns null without a due date", () => {
     expect(dueInfo(null, now)).toBeNull();
+  });
+});
+
+describe("project colors and description preview", () => {
+  it("maps Todoist color names and falls back to charcoal", () => {
+    expect(projectColor("berry_red")).toBe("#b8256f");
+    expect(projectColor("nonsense")).toBe("#808080");
+    expect(projectColor(undefined)).toBe("#808080");
+  });
+  it("previews the first non-empty description line as plain text", () => {
+    expect(descriptionPreview("\n  \nSee **notes** [here](https://x.y)\nsecond")).toBe("See notes here (https://x.y)");
+    expect(descriptionPreview("")).toBe("");
   });
 });

@@ -8,13 +8,18 @@ import type {
   EventDraft,
   FilterSpec,
   TodoistProject,
+  TodoistSection,
   TodoistTask,
   UndoRequest,
   UndoResult,
 } from "./types";
 
 export interface Api {
-  "tasks/list": { req: { filter: FilterSpec }; res: { tasks: TodoistTask[]; projects: TodoistProject[] } };
+  "tasks/list": {
+    req: { filter: FilterSpec };
+    /** `sections` is filled for project and Inbox views (empty for filter views). */
+    res: { tasks: TodoistTask[]; projects: TodoistProject[]; sections: TodoistSection[] };
+  };
   "todoist/test": { req: Record<string, never>; res: { projectCount: number } };
   "calendar/context": { req: Record<string, never>; res: CalendarContext };
   "google/connect": { req: Record<string, never>; res: CalendarContext };

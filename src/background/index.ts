@@ -13,8 +13,12 @@ const handlers: { [K in ApiType]?: Handler<K> } = {
   "tasks/list": async ({ filter }) => {
     // Re-fetch projects with every list so renamed or new projects show up.
     const projects: TodoistProject[] = await todoist.listProjects();
-    const tasks = await todoist.listTasks(filter, projects);
-    return { tasks, projects };
+    const sectionsFor = todoist.sectionProjectId(filter, projects);
+    const [tasks, sections] = await Promise.all([
+      todoist.listTasks(filter, projects),
+      sectionsFor ? todoist.listSections(sectionsFor) : Promise.resolve([]),
+    ]);
+    return { tasks, projects, sections };
   },
   "todoist/test": async () => ({ projectCount: await todoist.testConnection() }),
   "calendar/context": () => flow.calendarContext(),

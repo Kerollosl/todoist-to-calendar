@@ -137,6 +137,8 @@ export interface DueInfo {
   label: string;
   overdue: boolean;
   isToday: boolean;
+  /** Todoist's date colors: overdue red, today green, tomorrow orange, this week purple. */
+  tone: "overdue" | "today" | "tomorrow" | "week" | "later";
 }
 
 function isoDate(date: Date): string {
@@ -180,5 +182,29 @@ export function dueInfo(due: TodoistDue | null, now: Date, locale?: string): Due
       ...(sameYear ? {} : { year: "numeric" }),
     }).format(new Date(y, m - 1, d));
   }
-  return { label: time ? `${label} ${time}` : label, overdue: dateOnly < today, isToday: dateOnly === today };
+  const tone: DueInfo["tone"] =
+    dateOnly < today ? "overdue"
+    : dateOnly === today ? "today"
+    : dateOnly === shiftDays(today, 1) ? "tomorrow"
+    : dateOnly <= shiftDays(today, 6) ? "week"
+    : "later";
+  return { label: time ? `${label} ${time}` : label, overdue: dateOnly < today, isToday: dateOnly === today, tone };
+}
+
+/** Todoist's named project colors (https://developer.todoist.com/api/v1/#tag/Colors). */
+const PROJECT_COLORS: Record<string, string> = {
+  berry_red: "#b8256f", red: "#db4035", orange: "#ff9933", yellow: "#fad000", olive_green: "#afb83b",
+  lime_green: "#7ecc49", green: "#299438", mint_green: "#6accbc", teal: "#158fad", sky_blue: "#14aaf5",
+  light_blue: "#96c3eb", blue: "#4073ff", grape: "#884dff", violet: "#af38eb", lavender: "#eb96eb",
+  magenta: "#e05194", salmon: "#ff8d85", charcoal: "#808080", grey: "#b8b8b8", taupe: "#ccac93",
+};
+
+export function projectColor(name: string | undefined): string {
+  return (name && PROJECT_COLORS[name]) || PROJECT_COLORS.charcoal!;
+}
+
+/** First line of a task description, as plain text. */
+export function descriptionPreview(description: string): string {
+  const first = description.split(/\r?\n/).find((line) => line.trim()) ?? "";
+  return plainTitle(first);
 }

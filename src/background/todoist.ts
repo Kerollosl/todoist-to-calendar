@@ -2,7 +2,7 @@
 // Runs only in the service worker. The token is read from chrome.storage.local
 // per request and is never logged or sent anywhere except api.todoist.com.
 import { TOKEN_KEY } from "../shared/settings";
-import type { FilterSpec, TodoistProject, TodoistTask } from "../shared/types";
+import type { FilterSpec, TodoistProject, TodoistSection, TodoistTask } from "../shared/types";
 import { ApiError, isOffline, retryAfterSeconds } from "./errors";
 
 const BASE = "https://api.todoist.com/api/v1";
@@ -109,6 +109,19 @@ export async function listTasks(filter: FilterSpec, projects: readonly TodoistPr
     case "all":
       return paginate<TodoistTask>("/tasks");
   }
+}
+
+/** The project a filter shows sections for (Inbox or a project), else null. */
+export function sectionProjectId(filter: FilterSpec, projects: readonly TodoistProject[]): string | null {
+  if (filter.kind === "project") return filter.projectId;
+  if (filter.kind === "inbox") return projects.find((p) => p.inbox_project)?.id ?? null;
+  return null;
+}
+
+/** GET /sections?project_id=… (paginated), without archived or deleted sections. */
+export async function listSections(projectId: string): Promise<TodoistSection[]> {
+  const sections = await paginate<TodoistSection>("/sections", { project_id: projectId });
+  return sections.filter((s) => !s.is_archived && !s.is_deleted);
 }
 
 /** POST /tasks/{id}/close → 204. Recurring tasks advance to their next occurrence. */

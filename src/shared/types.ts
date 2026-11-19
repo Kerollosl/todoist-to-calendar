@@ -40,6 +40,15 @@ export interface TodoistProject {
   is_archived?: boolean;
 }
 
+export interface TodoistSection {
+  id: string;
+  project_id: string;
+  name: string;
+  section_order: number;
+  is_archived?: boolean;
+  is_deleted?: boolean;
+}
+
 /** What the panel asks the service worker to list. */
 export type FilterSpec =
   | { kind: "query"; query: string }
