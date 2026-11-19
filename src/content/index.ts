@@ -14,10 +14,11 @@ import { installKeyFirewall, pushKeyHandler } from "./keys";
 import { DragOverlay } from "./overlay";
 import { Panel } from "./panel";
 import { ConfirmPopover, type SubmitOutcome } from "./popover";
-import { createLauncher } from "./railButton";
+import { createDock } from "./dock";
+import { createLauncher, type Launcher } from "./railButton";
 import { BASE_CSS, DRAG_CSS, PANEL_CSS, POPOVER_CSS, TOAST_CSS } from "./styles";
 import { Toasts, type ToastAction } from "./toast";
-import { detectTheme } from "./theme";
+import { applyLook, readCalendarLook } from "./theme";
 
 function boot(): void {
   // A previous copy of this script may have left UI behind (e.g. injected again
@@ -39,9 +40,12 @@ function boot(): void {
     { class: "fab", type: "button", hidden: true, title: "Todoist tasks", "aria-label": "Todoist tasks", "aria-pressed": "false" },
     icon("logo"),
   );
+  // Declared up front: callbacks below may fire while later pieces are still being created.
+  let launcher: Launcher | null = null;
   const panel = new Panel({
     onOpenChange: (open) => {
-      launcher.setPressed(open);
+      launcher?.setPressed(open);
+      dock.setOpen(open);
       layout();
     },
   });
@@ -50,18 +54,22 @@ function boot(): void {
   const toasts = new Toasts();
   root.append(panel.el, fab, overlay.el, popover.el, toasts.el);
 
-  const launcher = createLauncher({
+  // Docked into Calendar's layout when possible; floating in `root` otherwise.
+  const dock = createDock({ panel: panel.el, floatingRoot: root, css: BASE_CSS + PANEL_CSS, onChange: () => layout() });
+
+  launcher = createLauncher({
     floatingButton: fab,
     onToggle: () => panel.toggle(),
     onLayoutChange: () => layout(),
   });
 
-  /** Theme + panel placement: just below Calendar's header, just left of the rail. */
+  /** Match Calendar's look; place the floating panel below the header, left of the rail. */
   function layout(): void {
-    const theme = detectTheme();
-    root.dataset.theme = theme;
-    launcher.setTheme(theme);
-    const railLeft = launcher.railLeft();
+    const look = readCalendarLook();
+    applyLook(root, look);
+    dock.setLook(look);
+    launcher?.setTheme(look.theme);
+    const railLeft = launcher?.railLeft() ?? null;
     const right = railLeft !== null ? Math.max(0, window.innerWidth - railLeft) + 4 : 8;
     const header = document.querySelector('header[role="banner"]') ?? document.querySelector("header");
     const top = header ? Math.round(header.getBoundingClientRect().bottom) + 4 : 68;
@@ -187,7 +195,17 @@ function boot(): void {
   layout();
   window.addEventListener("resize", layout);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", layout);
-  installKeyFirewall((event) => event.composedPath().includes(host));
+  // Calendar's theme setting changes body/html classes or styles; re-read its look.
+  let themeFrame = 0;
+  const themeObserver = new MutationObserver(() => {
+    cancelAnimationFrame(themeFrame);
+    themeFrame = requestAnimationFrame(layout);
+  });
+  for (const el of [document.documentElement, document.body]) themeObserver.observe(el, { attributes: true, attributeFilter: ["class", "style"] });
+  installKeyFirewall((event) => {
+    const path = event.composedPath();
+    return path.includes(host) || path.includes(dock.host);
+  });
   pushKeyHandler((event, fromUi) => panel.handleKey(event, fromUi));
   pushKeyHandler((event) => popover.handleKey(event));
 }

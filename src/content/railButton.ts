@@ -99,7 +99,8 @@ export function createLauncher(opts: {
     if (mode === "rail" || Date.now() - startedAt > FALLBACK_AFTER_MS) setMode("floating");
   }
 
-  tick();
+  // First check after createLauncher has returned: onLayoutChange may use the launcher.
+  queueMicrotask(tick);
   setInterval(tick, TICK_MS);
   window.addEventListener("resize", () => tick());
 
