@@ -145,3 +145,43 @@ export const DRAG_CSS = `
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .list.dragging, .list.dragging .row { cursor: grabbing; }
 `;
+
+export const POPOVER_CSS = `
+.popover-layer { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 4; }
+.backdrop { position: fixed; inset: 0; pointer-events: auto; background: transparent; }
+.popover {
+  position: fixed; width: 340px; max-height: calc(100vh - 24px); overflow: auto; pointer-events: auto;
+  background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 16px;
+  box-shadow: var(--shadow); padding: 16px 16px 14px;
+}
+.popover h3 { margin: 0 0 12px; font: 500 16px/24px "Google Sans", Roboto, Arial, sans-serif; }
+.field { display: grid; gap: 4px; margin-bottom: 10px; font-size: 12px; color: var(--muted); }
+.field input {
+  height: 36px; width: 100%; font: inherit; font-size: 14px; color: var(--text); background: var(--surface);
+  border: 1px solid transparent; border-radius: 8px; padding: 0 10px; color-scheme: light;
+}
+.ttc[data-theme="dark"] .field input { color-scheme: dark; }
+.field input:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
+.when { display: grid; gap: 0; }
+.row-inline { display: flex; justify-content: space-between; align-items: center; margin: 0 0 12px; font-size: 13px; }
+.toggle { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.toggle input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.hint { color: var(--subtle); font-size: 12px; }
+.warn {
+  display: flex; gap: 8px; align-items: flex-start; margin-bottom: 10px; padding: 8px 10px; border-radius: 8px;
+  background: var(--warn-bg); color: var(--warn-text); font-size: 12.5px; line-height: 1.4;
+}
+.warn svg { flex: none; margin-top: 1px; }
+.preview-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin: 2px 0 4px; }
+.preview {
+  margin: 0 0 12px; padding: 8px 12px 8px 32px; max-height: 168px; overflow: auto; border-radius: 8px;
+  background: var(--surface); font-size: 13px; line-height: 1.5;
+}
+.preview li { overflow-wrap: anywhere; }
+.error {
+  margin-bottom: 10px; padding: 8px 10px; border-radius: 8px; font-size: 13px;
+  background: color-mix(in srgb, var(--overdue) 14%, transparent); color: var(--overdue);
+}
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.actions .primary { grid-column: 1 / -1; order: -1; height: 36px; }
+`;
