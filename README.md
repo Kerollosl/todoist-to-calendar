@@ -2,13 +2,15 @@
 
 A Chrome extension (Manifest V3) that lets you drag Todoist tasks onto Google Calendar and turn them into **one** calendar event. You can then check the tasks off in Todoist, with Undo.
 
-- A Todoist button in Calendar's right-hand rail (next to Keep, Tasks and Contacts) opens a 320px side panel. If the rail is hidden, a floating tab on the right edge does the same.
-- The panel lists your tasks:
-  - Filters: Today & overdue (default), Today, Overdue, Upcoming, Inbox, All, any project, or your own Todoist filter.
-  - Search, grouping by project, priority color, due date and duration.
-- Multi-select:
+- A Todoist button in Calendar's right-hand rail (next to Keep, Tasks and Contacts) opens a 320px side panel. The panel docks beside the rail like Calendar's own Tasks panel, and the grid narrows rather than being covered. If the rail is hidden, a floating tab on the right edge opens a floating panel instead.
+- The panel opens on your **Inbox**, with one page per Todoist section, like board columns:
+  - Swipe left and right on a trackpad, use the ‹ › buttons, click a section chip, or press ← →.
+  - The "Inbox ▾" switcher picks any project (also paged by section) or Today & overdue, Today, Overdue, Upcoming, All tasks, or your own Todoist filter.
+  - Search across every section.
+  - Rows look like Todoist's: priority ring, description preview, colored due date, duration, recurring icon, and nested subtasks.
+- Multi-select, across sections:
   - Click toggles a task, shift-click selects a range, and cmd/ctrl-click adds one.
-  - Keyboard: ↑/↓ moves, Space toggles, shift+↑/↓ extends the range, ⌘/Ctrl+A selects all, Esc clears.
+  - Keyboard: ↑/↓ moves, ←/→ changes section, Space toggles, shift+↑/↓ extends the range, ⌘/Ctrl+A selects all on the page, Esc clears.
 - Dragging any selected task drags the whole selection. A ghost event shows where the event will land:
   - Day and week views snap to 15 minutes.
   - The header band above the grid creates an all-day event.
@@ -50,6 +52,8 @@ npm run build        # writes dist/ and prints the extension ID
 
 After any code change, run `npm run build` (or `npm run watch`), then click the reload icon on the extension card and refresh the Calendar tab.
 
+**Faster loop:** `npm run dev` makes a dev build. Load it once, and every later `npm run dev` makes open Calendar tabs reload the extension and refresh themselves. Dev builds expose a build-stamp file to calendar.google.com, so use `npm run build` for everyday use.
+
 ## Google Calendar setup
 
 Creating events through the API needs your own OAuth client ID. Without one, the extension uses the prefilled-page fallback described above.
@@ -80,6 +84,7 @@ All network calls happen in the background service worker. The content script ne
 ## Development
 
 ```bash
+npm run dev         # dev build: open Calendar tabs auto-reload on the next dev build
 npm run watch       # rebuild on change
 npm test            # Vitest unit tests (geometry, time zones, selection, description, flow)
 npm run typecheck   # tsc --noEmit
@@ -91,9 +96,11 @@ npm run package     # zip dist/ for the Chrome Web Store
 | --- | --- |
 | `src/content/calendarGeometry.ts` | **The fragile part.** Cursor → day/time from Calendar's DOM. Every selector it relies on is documented at the top of the file. |
 | `src/content/railButton.ts` | Rail launcher and floating-tab fallback |
+| `src/content/dock.ts` | Docks the panel into Calendar's layout beside the rail (fragile; falls back to floating) |
+| `src/content/theme.ts` | Reads Calendar's light/dark theme, surface color, card radius and font at runtime |
 | `src/content/panel.ts`, `drag.ts`, `dragSession.ts`, `popover.ts`, `toast.ts` | In-page UI (closed Shadow DOM) |
-| `src/core/` | Pure, unit-tested logic: selection, time/RFC 3339, description, filters, template URL, results |
+| `src/core/` | Pure, unit-tested logic: selection, sections/pages, time/RFC 3339, description, filters, template URL, results |
 | `src/background/` | Service worker: Todoist and Calendar clients, create → close → undo flow |
 | `src/options/` | Options page |
 
-If Google changes Calendar's markup, start with `calendarGeometry.ts` and `railButton.ts`.
+If Google changes Calendar's markup, start with `calendarGeometry.ts`, `railButton.ts` and `dock.ts`.
