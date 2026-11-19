@@ -39,16 +39,21 @@ function opaque(color: string): boolean {
  * opaque element (≥ 200px wide) inside [role="main"] is the grid card; if none
  * is found the CSS fallbacks in styles.ts apply.
  */
+let lastCard: { theme: Theme; surface: string; radius: string } | null = null;
+
 export function readCalendarLook(doc: Document = document): CalendarLook {
+  const theme = detectTheme();
   let surface: string | null = null;
   let radius: string | null = null;
   const main = doc.querySelector('[role="main"]');
   if (main) {
+    // The card spans the main column, which can be narrow while our panel is docked.
+    const minWidth = Math.max(40, main.getBoundingClientRect().width - 4);
     const queue: Element[] = [main];
     for (let visited = 0; queue.length && visited < 60; visited++) {
       const el = queue.shift()!;
       const cs = getComputedStyle(el);
-      if (parseFloat(cs.borderTopRightRadius) > 0 && opaque(cs.backgroundColor) && el.getBoundingClientRect().width >= 200) {
+      if (parseFloat(cs.borderTopRightRadius) > 0 && opaque(cs.backgroundColor) && el.getBoundingClientRect().width >= minWidth) {
         surface = cs.backgroundColor;
         radius = cs.borderTopRightRadius;
         break;
@@ -56,8 +61,10 @@ export function readCalendarLook(doc: Document = document): CalendarLook {
       queue.push(...Array.from(el.children).slice(0, 8));
     }
   }
+  if (surface && radius) lastCard = { theme, surface, radius };
+  else if (lastCard?.theme === theme) ({ surface, radius } = lastCard); // keep the last good reading
   const font = doc.body ? getComputedStyle(doc.body).fontFamily || null : null;
-  return { theme: detectTheme(), surface, radius, font };
+  return { theme, surface, radius, font };
 }
 
 /** Apply a look to a `.ttc` container: theme attribute plus measured overrides. */

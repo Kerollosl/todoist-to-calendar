@@ -66,6 +66,20 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, respond: (r: Res
   return true; // keep the channel open for the async response
 });
 
+/**
+ * One-time settings migration: the default view used to be "Today & overdue"
+ * ("default"). If that old default was saved, switch it to the Inbox.
+ */
+const SETTINGS_VERSION = 2;
+async function migrateSettings(): Promise<void> {
+  const stored = await chrome.storage.sync.get(["settingsVersion", "defaultFilter"]);
+  if (stored.settingsVersion === SETTINGS_VERSION) return;
+  if (stored.defaultFilter === "default") await chrome.storage.sync.set({ defaultFilter: "inbox" });
+  await chrome.storage.sync.set({ settingsVersion: SETTINGS_VERSION });
+}
+chrome.runtime.onInstalled.addListener(() => void migrateSettings());
+chrome.runtime.onStartup.addListener(() => void migrateSettings());
+
 chrome.action.onClicked.addListener(() => {
   void chrome.runtime.openOptionsPage();
 });

@@ -28,7 +28,7 @@ export const BASE_CSS = `
   -webkit-font-smoothing: antialiased;
 }
 .ttc[data-theme="dark"] {
-  --bg: #1e1f20; --surface: #282a2c; --surface-hi: #333537; --menu: #2d2f31;
+  --bg: #131314; --surface: #282a2c; --surface-hi: #333537; --menu: #2d2f31;
   --text: #e3e3e3; --muted: #c4c7c5; --subtle: #8e918f;
   --divider: rgba(227, 227, 227, .08); --border: #444746;
   --hover: rgba(227, 227, 227, .08); --press: rgba(227, 227, 227, .12);
