@@ -36,17 +36,16 @@ export async function getToken(interactive: boolean): Promise<string> {
     });
   }
   let token: string | undefined;
+  let reason = "";
   try {
     token = (await chrome.identity.getAuthToken({ interactive, scopes: [CALENDAR_SCOPE] })).token;
-  } catch {
-    token = undefined;
+  } catch (error) {
+    // Chrome's own explanation, e.g. "The user did not approve access." or "bad client id". Never contains a token.
+    reason = (error instanceof Error ? error.message : String(error)).slice(0, 240);
   }
   if (!token) {
-    throw new ApiError({
-      kind: "google-auth",
-      service: "google",
-      message: interactive ? "Google sign-in was cancelled or failed." : "Not connected to Google Calendar.",
-    });
+    const base = interactive ? "Google sign-in didn't complete" : "Not connected to Google Calendar";
+    throw new ApiError({ kind: "google-auth", service: "google", message: reason ? `${base}: ${reason}` : `${base}.` });
   }
   return token;
 }
