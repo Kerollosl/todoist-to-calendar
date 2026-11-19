@@ -126,3 +126,22 @@ button[aria-pressed="true"] { background: rgba(220, 76, 62, .16); }
 button:focus-visible { outline: 2px solid #0b57d0; outline-offset: 0; }
 :host([data-theme="dark"]) button:focus-visible { outline-color: #a8c7fa; }
 `;
+
+export const DRAG_CSS = `
+.drag-layer { position: fixed; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 3; }
+.chip {
+  position: fixed; left: 0; top: 0; display: flex; flex-direction: column; gap: 1px; padding: 6px 12px;
+  border-radius: 14px; background: var(--accent); color: #fff; box-shadow: var(--shadow);
+  font: 500 13px/18px "Google Sans", Roboto, Arial, sans-serif; white-space: nowrap; will-change: transform;
+}
+.ttc[data-theme="dark"] .chip { color: #1e1f20; }
+.chip-hint { font-weight: 400; font-size: 12px; opacity: .92; }
+.chip-hint:empty { display: none; }
+.ghost {
+  position: fixed; border-radius: 6px; border: 2px solid var(--accent); padding: 2px 6px; overflow: hidden;
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.ghost-label { font: 500 12px/16px "Google Sans", Roboto, Arial, sans-serif; color: var(--text); white-space: nowrap; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.list.dragging, .list.dragging .row { cursor: grabbing; }
+`;

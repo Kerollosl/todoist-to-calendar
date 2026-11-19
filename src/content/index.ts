@@ -1,10 +1,12 @@
 // Content script for calendar.google.com: mounts the launcher, the panel and
 // the drag/drop + confirm UI inside one closed shadow root.
 import { h, icon } from "./dom";
+import { attachDrag } from "./drag";
 import { installKeyFirewall, pushKeyHandler } from "./keys";
+import { DragOverlay } from "./overlay";
 import { Panel } from "./panel";
 import { createLauncher } from "./railButton";
-import { BASE_CSS, PANEL_CSS } from "./styles";
+import { BASE_CSS, DRAG_CSS, PANEL_CSS } from "./styles";
 import { detectTheme } from "./theme";
 
 function boot(): void {
@@ -14,7 +16,7 @@ function boot(): void {
   host.style.cssText = "all: initial; position: fixed; top: 0; left: 0; width: 0; height: 0; z-index: 2147483000;";
   const shadow = host.attachShadow({ mode: "closed" });
   const root = h("div", { class: "ttc" });
-  shadow.append(h("style", {}, BASE_CSS + PANEL_CSS), root);
+  shadow.append(h("style", {}, BASE_CSS + PANEL_CSS + DRAG_CSS), root);
   document.body.append(host);
 
   const fab = h(
@@ -28,7 +30,8 @@ function boot(): void {
       layout();
     },
   });
-  root.append(panel.el, fab);
+  const overlay = new DragOverlay();
+  root.append(panel.el, fab, overlay.el);
 
   const launcher = createLauncher({
     floatingButton: fab,
@@ -48,6 +51,24 @@ function boot(): void {
     root.style.setProperty("--ttc-right", `${right}px`);
     root.style.setProperty("--ttc-top", `${top}px`);
   }
+
+  attachDrag(panel.listElement, {
+    begin(id) {
+      panel.dispatch({ type: "dragStart", id });
+      const count = panel.selectedTasks().length;
+      overlay.start(count);
+      return count;
+    },
+    move(x, y) {
+      overlay.moveChip(x, y, "Drop on a day or time slot");
+    },
+    drop() {
+      overlay.end("Not a calendar slot. Nothing was created.");
+    },
+    cancel() {
+      overlay.end("Drag cancelled.");
+    },
+  });
 
   layout();
   window.addEventListener("resize", layout);
