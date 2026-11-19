@@ -3,8 +3,10 @@
 import { h, icon } from "./dom";
 import { initialTimes } from "../core/draft";
 import { totalDurationMinutes } from "../core/tasks";
+import { formatOffset, wallToUtcMs, zoneOffsetMinutes } from "../core/time";
 import { send } from "../shared/messages";
-import type { EventDraft, TaskRef } from "../shared/types";
+import type { CalendarContext, EventDraft, TaskRef } from "../shared/types";
+import { readGridOffset } from "./calendarGeometry";
 import { attachDrag } from "./drag";
 import { DragSession, targetLabel } from "./dragSession";
 import { installKeyFirewall, pushKeyHandler } from "./keys";
@@ -73,7 +75,7 @@ function boot(): void {
     move(x, y) {
       session.move(x, y);
     },
-    drop(x, y) {
+    async drop(x, y) {
       session.move(x, y);
       const target = session.finish();
       const tasks = panel.selectedTasks();
@@ -84,17 +86,19 @@ function boot(): void {
       const settings = panel.currentSettings;
       const duration = totalDurationMinutes(tasks, settings.defaultDuration);
       const refs: TaskRef[] = tasks.map((t) => ({ id: t.id, content: t.content, isRecurring: Boolean(t.due?.is_recurring) }));
+      const times = initialTimes(target, duration);
       overlay.announce(`Dropped on ${targetLabel(target, duration)}. Confirm the event details.`);
+      const context = await send("calendar/context", {});
       popover.open(
         {
           x,
           y,
           title: settings.defaultTitle,
-          times: initialTimes(target, duration),
+          times,
           tasks: refs,
           defaultDuration: settings.defaultDuration,
           includeLinks: settings.includeLinks,
-          notes: [],
+          notes: context.ok ? contextNotes(context.data, times) : [],
           submit: submitDraft,
         },
         () => panel.listElement.focus({ preventScroll: true }),
@@ -106,9 +110,28 @@ function boot(): void {
     },
   });
 
+  /** Heads-ups for the popover: fallback mode, sign-in prompt, time-zone mismatch. */
+  function contextNotes(context: CalendarContext, times: { allDay: boolean; start: string }): string[] {
+    if (!context.googleConfigured || context.googleDisabled) {
+      return ["Google Calendar isn't connected, so this opens a prefilled event in a new tab for you to save. Tasks won't be checked off."];
+    }
+    if (!context.googleConnected) return ["You'll be asked to allow access to Google Calendar first."];
+    const grid = readGridOffset();
+    if (context.timeZone && grid !== null && !times.allDay) {
+      const offset = zoneOffsetMinutes(context.timeZone, wallToUtcMs(times.start, context.timeZone));
+      if (offset !== grid) {
+        return [
+          `The grid shows GMT${formatOffset(grid)}, but your calendar's time zone is ${context.timeZone} (GMT${formatOffset(offset)}). Times are created in ${context.timeZone}.`,
+        ];
+      }
+    }
+    return [];
+  }
+
   async function submitDraft(draft: EventDraft, complete: boolean): Promise<SubmitOutcome> {
     const result = await send("event/create", { draft, complete });
     if (!result.ok) return { ok: false, message: result.error.message, retryable: result.error.kind !== "uncertain" };
+    overlay.announce(result.data.mode === "template" ? "Opened a prefilled Calendar event in a new tab." : "Event created.");
     return { ok: true };
   }
 

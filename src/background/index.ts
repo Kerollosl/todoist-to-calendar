@@ -4,6 +4,7 @@
 import { isApiRequest, type Api, type ApiType, type Result } from "../shared/messages";
 import type { TodoistProject } from "../shared/types";
 import { ApiError, toErrorInfo } from "./errors";
+import * as flow from "./flow";
 import * as todoist from "./todoist";
 
 type Handler<K extends ApiType> = (req: Api[K]["req"], sender: chrome.runtime.MessageSender) => Promise<Api[K]["res"]>;
@@ -16,6 +17,10 @@ const handlers: { [K in ApiType]?: Handler<K> } = {
     return { tasks, projects };
   },
   "todoist/test": async () => ({ projectCount: await todoist.testConnection() }),
+  "calendar/context": () => flow.calendarContext(),
+  "google/connect": () => flow.connectGoogle(),
+  "google/disconnect": () => flow.disconnectGoogle(),
+  "event/create": ({ draft, complete }) => flow.createEvent(draft, complete === true),
   "options/open": async () => {
     await chrome.runtime.openOptionsPage();
     return null;
