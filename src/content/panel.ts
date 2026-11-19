@@ -125,6 +125,7 @@ export class Panel {
       this.search = this.searchInput.value;
       this.render();
     });
+    this.tabs.addEventListener("scroll", () => this.updateTabFades(), { passive: true });
     this.prevBtn.addEventListener("click", () => this.goTo(this.pageIndex - 1));
     this.nextBtn.addEventListener("click", () => this.goTo(this.pageIndex + 1));
     this.tabs.addEventListener("click", (event) => {
@@ -306,14 +307,17 @@ export class Panel {
     }
     if (this.tabs.contains(this.activeElement())) {
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-        this.goTo(this.pageIndex + (event.key === "ArrowLeft" ? -1 : 1), true);
+        this.goTo(this.pageIndex + (event.key === "ArrowLeft" ? -1 : 1), { focusTab: true, instant: true });
         return true;
       }
       return false;
     }
     if (!this.track.matches(":focus")) return false;
     if ((event.key === "ArrowLeft" || event.key === "ArrowRight") && !mod && !event.altKey) {
-      this.goTo(this.pageIndex + (event.key === "ArrowLeft" ? -1 : 1));
+      // Keyboard: no animation, and put the cursor on the new page's first task.
+      this.track.classList.add("keyboard");
+      this.goTo(this.pageIndex + (event.key === "ArrowLeft" ? -1 : 1), { instant: true });
+      this.dispatch({ type: "move", to: "first", extend: false });
       return true;
     }
     const moves: Record<string, "next" | "prev" | "first" | "last"> = { ArrowDown: "next", ArrowUp: "prev", Home: "first", End: "last" };
@@ -481,12 +485,19 @@ export class Panel {
   }
 
   /** Scroll to a page; the scroll listener (or this call) updates the state. */
-  private goTo(index: number, focusTab = false): void {
+  private goTo(index: number, opts: { focusTab?: boolean; instant?: boolean } = {}): void {
     if (this.pages.length === 0) return;
     const target = Math.max(0, Math.min(this.pages.length - 1, index));
-    this.track.scrollTo({ left: target * this.track.clientWidth, behavior: reducedMotion() ? "auto" : "smooth" });
+    this.track.scrollTo({ left: target * this.track.clientWidth, behavior: opts.instant || reducedMotion() ? "auto" : "smooth" });
     this.setPage(target, false);
-    if (focusTab) this.tabs.querySelector<HTMLElement>(`[data-index="${target}"]`)?.focus();
+    if (opts.focusTab) this.tabs.querySelector<HTMLElement>(`[data-index="${target}"]`)?.focus();
+  }
+
+  /** Fade the chip strip's edges only where more chips are hidden. */
+  private updateTabFades(): void {
+    const { scrollLeft, scrollWidth, clientWidth } = this.tabs;
+    this.tabs.classList.toggle("more-left", scrollLeft > 1);
+    this.tabs.classList.toggle("more-right", scrollLeft + clientWidth < scrollWidth - 1);
   }
 
   private setPage(index: number, silent: boolean): void {
@@ -498,7 +509,11 @@ export class Panel {
       const selected = tab.dataset.index === String(index);
       tab.setAttribute("aria-selected", String(selected));
       tab.tabIndex = selected ? 0 : -1;
-      if (selected) tab.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reducedMotion() ? "auto" : "smooth" });
+      if (selected) {
+        // Scroll the strip itself (not the page) so the active chip clears the edge fades.
+        const target = tab.offsetLeft - (this.tabs.clientWidth - tab.offsetWidth) / 2;
+        this.tabs.scrollTo({ left: Math.max(0, target), behavior: reducedMotion() || silent ? "auto" : "smooth" });
+      }
     }
     this.prevBtn.disabled = index === 0;
     this.nextBtn.disabled = index === this.pages.length - 1;
@@ -549,6 +564,7 @@ export class Panel {
       ),
     );
     this.pager.hidden = this.pages.length < 2;
+    requestAnimationFrame(() => this.updateTabFades());
 
     // Pages
     const fragment = document.createDocumentFragment();

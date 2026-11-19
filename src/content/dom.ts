@@ -45,6 +45,8 @@ export const ICONS = {
   today: `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M4 9.5h16" stroke="currentColor" stroke-width="1.7"/><text x="12" y="17.6" text-anchor="middle" font-size="7.5" font-family="Arial, sans-serif" font-weight="700" fill="currentColor">${new Date().getDate()}</text></svg>`,
   upcoming: `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M4 9.5h16M8 13h2M12 13h2M16 13h0M8 16.5h2M12 16.5h2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`,
   filter: `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 6h14l-5.5 6.5V18l-3 1.5v-7Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>`,
+  notes: `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  schedule: `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   warning: `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3.5 2.5 20h19L12 3.5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.2v.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
 } as const;
 

@@ -6,6 +6,9 @@ import { addDays, addMinutes, wallDiffMinutes } from "../core/time";
 import type { EventDraft, TaskRef } from "../shared/types";
 import { h, icon } from "./dom";
 
+const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 export type SubmitOutcome = { ok: true } | { ok: false; message: string; retryable: boolean };
 
 export interface PopoverRequest {
@@ -46,7 +49,16 @@ export class ConfirmPopover {
     this.onClose = onClose;
     let times = { ...req.times };
 
-    const titleInput = h("input", { type: "text", value: req.title, maxlength: "200", required: true, autocomplete: "off", "aria-label": "Event title" });
+    const titleInput = h("input", {
+      class: "title-input",
+      type: "text",
+      value: req.title,
+      placeholder: "Add title",
+      maxlength: "200",
+      required: true,
+      autocomplete: "off",
+      "aria-label": "Event title",
+    });
     const allDayInput = h("input", { type: "checkbox" });
     const startInput = h("input", { required: true, "aria-label": "Start" });
     const endInput = h("input", { required: true, "aria-label": "End" });
@@ -115,23 +127,37 @@ export class ConfirmPopover {
     const form = h(
       "form",
       { novalidate: true },
-      h("h3", { id: "ttc-pop-title" }, "Create calendar event"),
-      h("label", { class: "field" }, h("span", {}, "Title"), titleInput),
+      h("h3", { id: "ttc-pop-title", class: "sr-only" }, "Create calendar event"),
+      titleInput,
       h(
         "div",
-        { class: "when" },
-        h("label", { class: "field" }, h("span", {}, "Start"), startInput),
-        h("label", { class: "field" }, h("span", {}, "End"), endInput),
+        { class: "prow" },
+        h("span", { class: "picon" }, icon("schedule")),
+        h(
+          "div",
+          { class: "when" },
+          h("label", {}, h("span", {}, "Starts"), startInput),
+          h("label", {}, h("span", {}, "Ends"), endInput),
+        ),
       ),
-      h("div", { class: "row-inline" }, h("label", { class: "toggle" }, allDayInput, " All day"), durationHint),
+      h("div", { class: "row-inline" }, h("label", { class: "toggle" }, allDayInput, "All day"), durationHint),
       ...warnings,
       h(
         "div",
-        { class: "preview-head" },
-        h("span", {}, `Description · ${req.tasks.length} task${req.tasks.length === 1 ? "" : "s"}`),
-        req.includeLinks ? h("span", { class: "hint" }, "with Todoist links") : null,
+        { class: "prow" },
+        h("span", { class: "picon" }, icon("notes")),
+        h(
+          "div",
+          {},
+          h(
+            "div",
+            { class: "preview-head" },
+            h("span", {}, `${req.tasks.length} task${req.tasks.length === 1 ? "" : "s"} in the description`),
+            req.includeLinks ? h("span", { class: "hint" }, "with links") : null,
+          ),
+          list,
+        ),
       ),
-      list,
       error,
       h("div", { class: "actions" }, cancel, eventOnly, primary),
     );
@@ -195,13 +221,24 @@ export class ConfirmPopover {
     this.backdrop.hidden = false;
     this.el.append(card);
     this.position(card, req.x, req.y);
+    // Grow out of the drop point (origin-aware), quick ease-out.
+    card.animate(
+      reducedMotion()
+        ? [{ opacity: 0 }, { opacity: 1 }]
+        : [{ opacity: 0, transform: "scale(.96)" }, { opacity: 1, transform: "none" }],
+      { duration: 180, easing: EASE_OUT },
+    );
     titleInput.focus();
     titleInput.select();
   }
 
   close(): void {
     if (!this.card) return;
-    this.card.remove();
+    const card = this.card;
+    // Exit faster than enter; remove only after the fade.
+    const exit = card.animate([{ opacity: 1 }, { opacity: 0 }], { duration: reducedMotion() ? 0 : 120, easing: EASE_OUT, fill: "forwards" });
+    card.style.pointerEvents = "none";
+    exit.finished.then(() => card.remove(), () => card.remove());
     this.card = null;
     this.busy = false;
     this.backdrop.hidden = true;
@@ -239,5 +276,6 @@ export class ConfirmPopover {
     const top = Math.min(Math.max(margin, y - 60), Math.max(margin, window.innerHeight - height - margin));
     card.style.left = `${Math.round(left)}px`;
     card.style.top = `${Math.round(top)}px`;
+    card.style.transformOrigin = `${Math.round(x - left)}px ${Math.round(y - top)}px`;
   }
 }

@@ -2,6 +2,9 @@
 // anything that needs attention stays until dismissed.
 import { h, icon } from "./dom";
 
+const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 export interface ToastAction {
   label: string;
   primary?: boolean;
@@ -71,14 +74,25 @@ export class Toasts {
       if (!node.contains((node.getRootNode() as ShadowRoot).activeElement)) arm();
     });
     this.el.append(node);
+    // Snackbar enters from below (ease-out), exits faster.
+    node.animate(
+      reducedMotion() ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: "translateY(12px)" }, { opacity: 1, transform: "none" }],
+      { duration: 200, easing: EASE_OUT },
+    );
     arm();
   }
 
   dismiss(): void {
     if (!this.current) return;
     clearTimeout(this.current.timer);
-    this.current.node.remove();
+    const node = this.current.node;
     this.current = null;
+    node.style.pointerEvents = "none";
+    const exit = node.animate(
+      reducedMotion() ? [{ opacity: 1 }, { opacity: 0 }] : [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(8px)" }],
+      { duration: 150, easing: EASE_OUT, fill: "forwards" },
+    );
+    exit.finished.then(() => node.remove(), () => node.remove());
   }
 
   private pause(): void {
