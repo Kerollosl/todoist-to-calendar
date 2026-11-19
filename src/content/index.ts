@@ -1,7 +1,9 @@
 // Content script for calendar.google.com: mounts the launcher, the panel and
 // the drag/drop + confirm UI inside one closed shadow root.
 import { h, icon } from "./dom";
+import { totalDurationMinutes } from "../core/tasks";
 import { attachDrag } from "./drag";
+import { DragSession, targetLabel } from "./dragSession";
 import { installKeyFirewall, pushKeyHandler } from "./keys";
 import { DragOverlay } from "./overlay";
 import { Panel } from "./panel";
@@ -52,21 +54,33 @@ function boot(): void {
     root.style.setProperty("--ttc-top", `${top}px`);
   }
 
+  const session = new DragSession(overlay, () => {
+    const rect = panel.rect();
+    return rect ? [{ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }] : [];
+  });
   attachDrag(panel.listElement, {
     begin(id) {
       panel.dispatch({ type: "dragStart", id });
-      const count = panel.selectedTasks().length;
-      overlay.start(count);
-      return count;
+      const tasks = panel.selectedTasks();
+      session.start(tasks.length, totalDurationMinutes(tasks, panel.currentSettings.defaultDuration));
+      return tasks.length;
     },
     move(x, y) {
-      overlay.moveChip(x, y, "Drop on a day or time slot");
+      session.move(x, y);
     },
-    drop() {
-      overlay.end("Not a calendar slot. Nothing was created.");
+    drop(x, y) {
+      session.move(x, y);
+      const target = session.finish();
+      const tasks = panel.selectedTasks();
+      if (!target) {
+        overlay.announce("Not on a calendar slot. Nothing was created.");
+        return;
+      }
+      overlay.announce(`Dropped on ${targetLabel(target, totalDurationMinutes(tasks, panel.currentSettings.defaultDuration))}.`);
     },
     cancel() {
-      overlay.end("Drag cancelled.");
+      session.cancel();
+      overlay.announce("Drag cancelled.");
     },
   });
 

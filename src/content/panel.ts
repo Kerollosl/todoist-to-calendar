@@ -99,6 +99,10 @@ export class Panel {
     window.addEventListener("online", maybeRefresh);
   }
 
+  get currentSettings(): Settings {
+    return this.settings;
+  }
+
   get listElement(): HTMLElement {
     return this.list;
   }
