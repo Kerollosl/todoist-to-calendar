@@ -1,6 +1,7 @@
 // User preferences (chrome.storage.sync). The Todoist token is NOT here: it lives
 // in chrome.storage.local under TOKEN_KEY and is only read by the service worker.
 import type { FilterPreset } from "../core/filters";
+import { normalizeLinkText, normalizeLinkUrl } from "../core/topLink";
 
 export interface Settings {
   defaultFilter: FilterPreset;
@@ -8,6 +9,8 @@ export interface Settings {
   defaultDuration: number; // minutes, used when no selected task has a duration
   includeLinks: boolean; // append each task's Todoist URL to its description line
   defaultTitle: string;
+  topLinkUrl: string; // "" = no link in the top bar
+  topLinkText: string; // "" = show the URL's host
 }
 
 export const TOKEN_KEY = "todoistToken";
@@ -19,6 +22,8 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultDuration: 30,
   includeLinks: false,
   defaultTitle: "Todoist",
+  topLinkUrl: "",
+  topLinkText: "",
 };
 
 const PRESETS: readonly FilterPreset[] = ["default", "today", "overdue", "upcoming", "inbox", "all", "custom"];
@@ -39,6 +44,8 @@ export function sanitizeSettings(raw: Partial<Record<keyof Settings, unknown>>):
       typeof raw.defaultTitle === "string" && raw.defaultTitle.trim()
         ? raw.defaultTitle.trim().slice(0, 200)
         : DEFAULT_SETTINGS.defaultTitle,
+    topLinkUrl: normalizeLinkUrl(raw.topLinkUrl),
+    topLinkText: normalizeLinkText(raw.topLinkText),
   };
 }
 

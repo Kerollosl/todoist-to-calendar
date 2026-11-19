@@ -79,6 +79,7 @@ const shared = {
 const entries = [
   { entryPoints: [path.join(root, "src/background/index.ts")], outfile: path.join(dist, "background.js"), format: "esm" },
   { entryPoints: [path.join(root, "src/content/index.ts")], outfile: path.join(dist, "content.js"), format: "iife" },
+  { entryPoints: [path.join(root, "src/content/topLink.ts")], outfile: path.join(dist, "topLink.js"), format: "iife" },
   { entryPoints: [path.join(root, "src/options/options.ts")], outfile: path.join(dist, "options.js"), format: "iife" },
 ];
 

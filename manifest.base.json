@@ -28,6 +28,16 @@
         "content.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://calendar.google.com/*",
+        "https://app.todoist.com/*"
+      ],
+      "js": [
+        "topLink.js"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "action": {

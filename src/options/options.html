@@ -131,6 +131,24 @@
       <p id="prefs-status" class="status" role="status" aria-live="polite"></p>
     </section>
 
+    <section aria-labelledby="toplink-h">
+      <h2 id="toplink-h">Top bar link</h2>
+      <p class="lede">Shows a link in the middle of the top bar on Google Calendar and Todoist. Leave the URL empty to hide it. Changes save automatically.</p>
+      <div class="grid2">
+        <label class="field">
+          Link text
+          <input id="topLinkText" type="text" maxlength="60" placeholder="e.g. Weekly plan">
+          <small>Empty shows the site name.</small>
+        </label>
+        <label class="field">
+          URL
+          <input id="topLinkUrl" type="text" spellcheck="false" placeholder="https://…">
+          <small>Opens in a new tab. http and https only.</small>
+        </label>
+      </div>
+      <p id="toplink-status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
     <section aria-labelledby="google-h">
       <h2 id="google-h">Google Calendar</h2>
       <p class="lede">Events are created on your primary calendar with the <code>calendar.events</code> permission. Without it, dropping opens a prefilled Calendar page for you to save, and tasks are not checked off.</p>

@@ -65,7 +65,10 @@ const fields = {
   defaultTitle: $<HTMLInputElement>("defaultTitle"),
   defaultDuration: $<HTMLInputElement>("defaultDuration"),
   includeLinks: $<HTMLInputElement>("includeLinks"),
+  topLinkText: $<HTMLInputElement>("topLinkText"),
+  topLinkUrl: $<HTMLInputElement>("topLinkUrl"),
 };
+const topLinkStatus = $("toplink-status");
 
 function fillPrefs(settings: Settings): void {
   fields.defaultFilter.value = settings.defaultFilter;
@@ -73,6 +76,8 @@ function fillPrefs(settings: Settings): void {
   fields.defaultTitle.value = settings.defaultTitle;
   fields.defaultDuration.value = String(settings.defaultDuration);
   fields.includeLinks.checked = settings.includeLinks;
+  fields.topLinkText.value = settings.topLinkText;
+  fields.topLinkUrl.value = settings.topLinkUrl;
 }
 
 let saveTimer: number | undefined;
@@ -85,8 +90,15 @@ function savePrefs(): void {
       defaultTitle: fields.defaultTitle.value,
       defaultDuration: fields.defaultDuration.value,
       includeLinks: fields.includeLinks.checked,
+      topLinkText: fields.topLinkText.value,
+      topLinkUrl: fields.topLinkUrl.value,
     });
     await chrome.storage.sync.set(settings);
+    if (fields.topLinkUrl.value.trim() && !settings.topLinkUrl) {
+      setStatus(topLinkStatus, "That URL isn't valid (http or https only), so the link is hidden.", "bad");
+    } else {
+      setStatus(topLinkStatus, settings.topLinkUrl ? "Saved." : fields.topLinkText.value.trim() ? "Saved. Add a URL to show the link." : "", settings.topLinkUrl ? "ok" : "");
+    }
     if (settings.defaultFilter === "custom" && !settings.customQuery) {
       setStatus(prefsStatus, "Saved. Add a custom filter, or the panel uses Today & overdue.", "bad");
     } else {
@@ -99,7 +111,7 @@ for (const el of Object.values(fields)) {
   el.addEventListener("change", savePrefs);
 }
 // Re-show sanitized values (e.g. duration rounded to 5) when leaving a field.
-for (const el of [fields.defaultDuration, fields.defaultTitle]) {
+for (const el of [fields.defaultDuration, fields.defaultTitle, fields.topLinkText]) {
   el.addEventListener("blur", async () => {
     await new Promise((r) => setTimeout(r, 350));
     fillPrefs(await getSettings());
