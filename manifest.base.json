@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "Todoist → Calendar",
+  "version": "0.1.0",
+  "description": "Drag Todoist tasks onto Google Calendar to turn them into one event. Unofficial; not affiliated with Todoist or Google.",
+  "minimum_chrome_version": "116",
+  "author": "Kerollos Lowandy",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2shs6UHcWA4cSsK+ku10eRuG7DXE5gGAPptx/RxRo9avOvrlixDenExwepuLEcKnYaX2n6lBsr1DcFEJ++zvcjsym7FzM5F7cVqG5gv+tMQGBT6haMZR8tBBUSYqA+j5ICtcTjvBVLORLtM/dJmL440dGl8P9av+Vq5H66xy5+xgMV1cNZ7HuowN0JZlcGSxO86AadRqmaCsQ65aS4afeMGlbzOJnjTTua4fFA5rK4KPuEXJifrIfWNGGewquaYRyU1nhLHLHwJoL+K5WPumsGmnk2cHcvPpEw3BfxeC5I85TW/7ZQzSkpUf75J7ZFqvCRSnQPRbpYbeDK6RL2aIIwIDAQAB",
+  "permissions": [
+    "storage",
+    "identity"
+  ],
+  "host_permissions": [
+    "https://calendar.google.com/*",
+    "https://api.todoist.com/*",
+    "https://www.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://calendar.google.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Todoist → Calendar options",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
