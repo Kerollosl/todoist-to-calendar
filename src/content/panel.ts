@@ -9,6 +9,7 @@ import {
   type FilterChoice,
   type FilterPreset,
 } from "../core/filters";
+import { EMPTY_SELECTION, reduceSelection, selectedInOrder, type SelectionAction, type SelectionState } from "../core/selection";
 import { dueInfo, formatDuration, groupByProject, plainTitle, priorityColor, priorityLabel, projectOrder, taskDurationMinutes } from "../core/tasks";
 import { send } from "../shared/messages";
 import { DEFAULT_SETTINGS, getSettings, sanitizeSettings, type Settings } from "../shared/settings";
@@ -22,6 +23,7 @@ export class Panel {
   private readonly list: HTMLElement;
   private readonly status: HTMLElement;
   private readonly countEl: HTMLElement;
+  private readonly clearBtn: HTMLButtonElement;
   private readonly filterSelect: HTMLSelectElement;
   private readonly searchInput: HTMLInputElement;
   private readonly refreshBtn: HTMLButtonElement;
@@ -37,6 +39,7 @@ export class Panel {
   private loadSeq = 0;
   private loadedAt = 0;
   private visibleIds: string[] = [];
+  private sel: SelectionState = EMPTY_SELECTION;
 
   constructor(private readonly hooks: { onOpenChange: (open: boolean) => void }) {
     this.refreshBtn = h("button", { class: "icon-btn", type: "button", title: "Refresh", "aria-label": "Refresh tasks" }, icon("refresh"));
@@ -46,6 +49,7 @@ export class Panel {
     this.status = h("div", { class: "status", role: "status", "aria-live": "polite" });
     this.list = h("div", { class: "list", role: "listbox", "aria-label": "Todoist tasks", "aria-multiselectable": "true", tabindex: "0" });
     this.countEl = h("span", { class: "count", "aria-live": "polite" });
+    this.clearBtn = h("button", { class: "btn text", type: "button", hidden: true }, "Clear");
 
     this.el = h(
       "aside",
@@ -54,10 +58,18 @@ export class Panel {
       h("div", { class: "controls" }, this.filterSelect, h("div", { class: "search" }, icon("search"), this.searchInput)),
       this.status,
       this.list,
-      h("div", { class: "foot" }, this.countEl),
+      h("div", { class: "foot" }, this.countEl, this.clearBtn),
     );
 
     closeBtn.addEventListener("click", () => this.close());
+    this.clearBtn.addEventListener("click", () => this.dispatch({ type: "clear" }));
+    this.list.addEventListener("click", (event) => {
+      const row = (event.target as Element).closest<HTMLElement>(".row");
+      if (!row?.dataset.id) return;
+      this.list.classList.remove("keyboard");
+      this.dispatch({ type: "click", id: row.dataset.id, shift: event.shiftKey, toggle: event.metaKey || event.ctrlKey });
+      this.list.focus({ preventScroll: true });
+    });
     this.refreshBtn.addEventListener("click", () => void this.refresh());
     this.filterSelect.addEventListener("change", () => {
       const choice = valueToChoice(this.filterSelect.value);
@@ -117,6 +129,82 @@ export class Panel {
 
   rect(): DOMRect | null {
     return this.isOpen ? this.el.getBoundingClientRect() : null;
+  }
+
+  /** Tasks currently selected, in visible (numbering) order. */
+  selectedTasks(): TodoistTask[] {
+    const byId = new Map(this.tasks.map((t) => [t.id, t]));
+    return selectedInOrder(this.sel, this.visibleIds).flatMap((id) => byId.get(id) ?? []);
+  }
+
+  /**
+   * Keyboard handling for the list and search box, called from the key firewall.
+   * Returns true when the key was handled.
+   */
+  handleKey(event: KeyboardEvent, fromUi: boolean): boolean {
+    if (!this.isOpen || !fromUi) return false;
+    const mod = event.metaKey || event.ctrlKey;
+    if (this.searchInput.matches(":focus")) {
+      if (event.key === "ArrowDown") {
+        this.list.focus();
+        this.list.classList.add("keyboard");
+        if (!this.sel.active) this.dispatch({ type: "move", to: "first", extend: false });
+        return true;
+      }
+      if (event.key === "Escape" && this.searchInput.value) {
+        this.searchInput.value = "";
+        this.search = "";
+        this.renderList();
+        return true;
+      }
+      return false;
+    }
+    if (!this.list.matches(":focus")) return false;
+    const moves: Record<string, "next" | "prev" | "first" | "last"> = { ArrowDown: "next", ArrowUp: "prev", Home: "first", End: "last" };
+    const move = moves[event.key];
+    if (move && !mod && !event.altKey) {
+      this.list.classList.add("keyboard");
+      this.dispatch({ type: "move", to: move, extend: event.shiftKey });
+      return true;
+    }
+    if ((event.key === " " || event.key === "Enter") && !mod) {
+      this.list.classList.add("keyboard");
+      this.dispatch({ type: "toggleActive" });
+      return true;
+    }
+    if (mod && event.key.toLowerCase() === "a" && !event.shiftKey) {
+      this.dispatch({ type: "selectAll" });
+      return true;
+    }
+    if (event.key === "Escape") {
+      if (this.sel.selected.size > 0) this.dispatch({ type: "clear" });
+      else this.close();
+      return true;
+    }
+    return false;
+  }
+
+  dispatch(action: SelectionAction): void {
+    const next = reduceSelection(this.sel, action, this.visibleIds);
+    if (next === this.sel) return;
+    this.sel = next;
+    this.applySelection();
+  }
+
+  /** Reflect selection on existing rows without rebuilding the list. */
+  private applySelection(): void {
+    for (const row of this.list.querySelectorAll<HTMLElement>(".row")) {
+      const id = row.dataset.id ?? "";
+      row.setAttribute("aria-selected", String(this.sel.selected.has(id)));
+      row.classList.toggle("active", id === this.sel.active);
+    }
+    if (this.sel.active) {
+      this.list.setAttribute("aria-activedescendant", `ttc-task-${this.sel.active}`);
+      this.list.querySelector<HTMLElement>(`[data-id="${CSS.escape(this.sel.active)}"]`)?.scrollIntoView({ block: "nearest" });
+    } else {
+      this.list.removeAttribute("aria-activedescendant");
+    }
+    this.renderFooter();
   }
 
   async refresh(): Promise<void> {
@@ -243,8 +331,9 @@ export class Panel {
       fragment.append(section);
     }
     this.list.replaceChildren(fragment);
+    this.sel = reduceSelection(this.sel, { type: "sync" }, this.visibleIds);
+    this.applySelection();
     this.renderStatus();
-    this.renderFooter();
   }
 
   private renderRow(task: TodoistTask, now: Date): HTMLElement {
@@ -273,7 +362,15 @@ export class Panel {
   }
 
   private renderFooter(): void {
+    const selected = this.sel.selected.size;
     const n = this.visibleIds.length;
-    this.countEl.textContent = this.error ? "" : `${n} task${n === 1 ? "" : "s"}`;
+    this.clearBtn.hidden = selected === 0;
+    if (this.error) {
+      this.countEl.textContent = "";
+    } else if (selected > 0) {
+      this.countEl.replaceChildren(h("strong", {}, `${selected} selected`), " · drag onto the calendar");
+    } else {
+      this.countEl.textContent = n ? `${n} task${n === 1 ? "" : "s"} · click to select` : "";
+    }
   }
 }

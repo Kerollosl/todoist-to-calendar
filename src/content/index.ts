@@ -1,7 +1,7 @@
 // Content script for calendar.google.com: mounts the launcher, the panel and
 // the drag/drop + confirm UI inside one closed shadow root.
 import { h, icon } from "./dom";
-import { installKeyFirewall } from "./keys";
+import { installKeyFirewall, pushKeyHandler } from "./keys";
 import { Panel } from "./panel";
 import { createLauncher } from "./railButton";
 import { BASE_CSS, PANEL_CSS } from "./styles";
@@ -53,6 +53,7 @@ function boot(): void {
   window.addEventListener("resize", layout);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", layout);
   installKeyFirewall((event) => event.composedPath().includes(host));
+  pushKeyHandler((event, fromUi) => panel.handleKey(event, fromUi));
 }
 
 boot();
