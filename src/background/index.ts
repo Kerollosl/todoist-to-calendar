@@ -21,6 +21,7 @@ const handlers: { [K in ApiType]?: Handler<K> } = {
   "google/connect": () => flow.connectGoogle(),
   "google/disconnect": () => flow.disconnectGoogle(),
   "event/create": ({ draft, complete }) => flow.createEvent(draft, complete === true),
+  "undo": (req) => flow.undo(req),
   "options/open": async () => {
     await chrome.runtime.openOptionsPage();
     return null;

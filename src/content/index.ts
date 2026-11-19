@@ -2,10 +2,11 @@
 // the drag/drop + confirm UI inside one closed shadow root.
 import { h, icon } from "./dom";
 import { initialTimes } from "../core/draft";
+import { describeCreate, describeUndo, safeEventLink } from "../core/results";
 import { totalDurationMinutes } from "../core/tasks";
 import { formatOffset, wallToUtcMs, zoneOffsetMinutes } from "../core/time";
 import { send } from "../shared/messages";
-import type { CalendarContext, EventDraft, TaskRef } from "../shared/types";
+import type { CalendarContext, CreateResult, EventDraft, TaskRef } from "../shared/types";
 import { readGridOffset } from "./calendarGeometry";
 import { attachDrag } from "./drag";
 import { DragSession, targetLabel } from "./dragSession";
@@ -14,7 +15,8 @@ import { DragOverlay } from "./overlay";
 import { Panel } from "./panel";
 import { ConfirmPopover, type SubmitOutcome } from "./popover";
 import { createLauncher } from "./railButton";
-import { BASE_CSS, DRAG_CSS, PANEL_CSS, POPOVER_CSS } from "./styles";
+import { BASE_CSS, DRAG_CSS, PANEL_CSS, POPOVER_CSS, TOAST_CSS } from "./styles";
+import { Toasts, type ToastAction } from "./toast";
 import { detectTheme } from "./theme";
 
 function boot(): void {
@@ -24,7 +26,7 @@ function boot(): void {
   host.style.cssText = "all: initial; position: fixed; top: 0; left: 0; width: 0; height: 0; z-index: 2147483000;";
   const shadow = host.attachShadow({ mode: "closed" });
   const root = h("div", { class: "ttc" });
-  shadow.append(h("style", {}, BASE_CSS + PANEL_CSS + DRAG_CSS + POPOVER_CSS), root);
+  shadow.append(h("style", {}, BASE_CSS + PANEL_CSS + DRAG_CSS + POPOVER_CSS + TOAST_CSS), root);
   document.body.append(host);
 
   const fab = h(
@@ -40,7 +42,8 @@ function boot(): void {
   });
   const overlay = new DragOverlay();
   const popover = new ConfirmPopover();
-  root.append(panel.el, fab, overlay.el, popover.el);
+  const toasts = new Toasts();
+  root.append(panel.el, fab, overlay.el, popover.el, toasts.el);
 
   const launcher = createLauncher({
     floatingButton: fab,
@@ -131,8 +134,37 @@ function boot(): void {
   async function submitDraft(draft: EventDraft, complete: boolean): Promise<SubmitOutcome> {
     const result = await send("event/create", { draft, complete });
     if (!result.ok) return { ok: false, message: result.error.message, retryable: result.error.kind !== "uncertain" };
-    overlay.announce(result.data.mode === "template" ? "Opened a prefilled Calendar event in a new tab." : "Event created.");
+    showCreateResult(result.data, draft, complete);
     return { ok: true };
+  }
+
+  function showCreateResult(result: CreateResult, draft: EventDraft, complete: boolean): void {
+    const summary = describeCreate(result, draft.tasks, complete);
+    const actions: ToastAction[] = [];
+    if (result.mode === "api" && result.event) {
+      actions.push({ label: "Undo", run: () => runUndo(result, true) });
+      if (result.closed.length > 0) actions.push({ label: "Reopen tasks only", run: () => runUndo(result, false) });
+    }
+    const href = safeEventLink(result.event?.htmlLink);
+    toasts.show({
+      ...summary,
+      actions,
+      link: href ? { label: "Open event", href } : undefined,
+      timeoutMs: summary.tone === "error" ? null : 12_000,
+    });
+    if (result.closed.length) panel.removeTasks(result.closed.map((t) => t.id));
+    window.setTimeout(() => panel.open && void panel.refresh(), 1500);
+  }
+
+  async function runUndo(result: CreateResult, deleteEvent: boolean): Promise<void> {
+    const response = await send("undo", { eventId: result.event?.id, tasks: result.closed, deleteEvent });
+    if (!response.ok) {
+      toasts.show({ tone: "error", message: "Undo failed", details: [response.error.message], timeoutMs: null });
+    } else {
+      const summary = describeUndo(response.data, deleteEvent);
+      toasts.show({ ...summary, timeoutMs: summary.tone === "error" ? null : 6000 });
+    }
+    if (panel.open) void panel.refresh();
   }
 
   layout();
