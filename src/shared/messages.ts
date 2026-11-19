@@ -43,8 +43,23 @@ export function isApiRequest(message: unknown): message is ApiRequest {
   return typeof message === "object" && message !== null && TYPES.has((message as { type?: unknown }).type as string);
 }
 
+export const STALE_MESSAGE = "Todoist → Calendar was updated. Reload this tab to keep using it.";
+
+/**
+ * False once the extension has been reloaded or updated: this content script
+ * keeps running in the tab but can no longer reach chrome.* APIs.
+ */
+export function isContextAlive(): boolean {
+  try {
+    return Boolean(chrome.runtime?.id);
+  } catch {
+    return false;
+  }
+}
+
 /** Send a request to the service worker. Never throws: failures come back as `{ ok: false }`. */
 export async function send<K extends ApiType>(type: K, payload: Api[K]["req"]): Promise<Result<Api[K]["res"]>> {
+  if (!isContextAlive()) return { ok: false, error: { kind: "stale", message: STALE_MESSAGE } };
   try {
     const response = (await chrome.runtime.sendMessage({ type, ...payload })) as Result<Api[K]["res"]> | undefined;
     if (!response) return { ok: false, error: { kind: "bad-request", message: "No response from the extension." } };
@@ -52,14 +67,9 @@ export async function send<K extends ApiType>(type: K, payload: Api[K]["req"]): 
   } catch (error) {
     // Typically "Extension context invalidated" after the extension was reloaded.
     const message = error instanceof Error ? error.message : String(error);
-    return {
-      ok: false,
-      error: {
-        kind: "bad-request",
-        message: /context invalidated/i.test(message)
-          ? "The extension was updated. Reload this tab to keep using it."
-          : message,
-      },
-    };
+    if (/context invalidated/i.test(message) || !isContextAlive()) {
+      return { ok: false, error: { kind: "stale", message: STALE_MESSAGE } };
+    }
+    return { ok: false, error: { kind: "bad-request", message } };
   }
 }

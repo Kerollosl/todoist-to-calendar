@@ -14,7 +14,7 @@ export const TOKEN_KEY = "todoistToken";
 export const GOOGLE_DISABLED_KEY = "googleDisabled";
 
 export const DEFAULT_SETTINGS: Settings = {
-  defaultFilter: "default",
+  defaultFilter: "inbox",
   customQuery: "",
   defaultDuration: 30,
   includeLinks: false,

@@ -11,7 +11,7 @@ import {
 } from "../core/filters";
 import { EMPTY_SELECTION, reduceSelection, selectedInOrder, type SelectionAction, type SelectionState } from "../core/selection";
 import { dueInfo, formatDuration, groupByProject, plainTitle, priorityColor, priorityLabel, projectOrder, taskDurationMinutes } from "../core/tasks";
-import { send } from "../shared/messages";
+import { STALE_MESSAGE, isContextAlive, send } from "../shared/messages";
 import { DEFAULT_SETTINGS, getSettings, sanitizeSettings, type Settings } from "../shared/settings";
 import type { ErrorInfo, TodoistProject, TodoistTask } from "../shared/types";
 import { h, icon } from "./dom";
@@ -116,11 +116,35 @@ export class Panel {
     this.isOpen = true;
     this.el.hidden = false;
     this.hooks.onOpenChange(true);
-    this.settings = await getSettings();
-    if (!this.choice) this.choice = { preset: this.settings.defaultFilter };
+    // Render something useful before any await, so the panel is never blank.
     this.renderFilterOptions();
-    void this.refresh(); // auto-refresh every time the panel opens
     this.list.focus({ preventScroll: true });
+    if (!isContextAlive()) {
+      this.markStale();
+      return;
+    }
+    try {
+      this.settings = await getSettings();
+    } catch {
+      if (!isContextAlive()) {
+        this.markStale();
+        return;
+      }
+    }
+    if (!this.choice) {
+      this.choice = { preset: this.settings.defaultFilter };
+      this.renderFilterOptions();
+    }
+    void this.refresh(); // auto-refresh every time the panel opens
+  }
+
+  /** The extension was reloaded under us: say so instead of failing silently. */
+  markStale(): void {
+    if (this.error?.kind === "stale") return;
+    this.loadSeq++;
+    this.loading = false;
+    this.error = { kind: "stale", message: STALE_MESSAGE };
+    this.renderList();
   }
 
   close(): void {
@@ -298,7 +322,11 @@ export class Panel {
       status.hidden = false;
       const err = this.error;
       const actions = h("div", { class: "actions" });
-      if (err.kind === "no-token" || err.kind === "auth") {
+      if (err.kind === "stale") {
+        const reload = h("button", { class: "btn primary", type: "button" }, "Reload tab");
+        reload.addEventListener("click", () => location.reload());
+        actions.append(reload);
+      } else if (err.kind === "no-token" || err.kind === "auth") {
         const fix = h("button", { class: "btn primary", type: "button" }, err.kind === "no-token" ? "Add token" : "Fix token");
         fix.addEventListener("click", () => void send("options/open", {}));
         actions.append(fix);

@@ -5,7 +5,7 @@ import { initialTimes } from "../core/draft";
 import { describeCreate, describeUndo, safeEventLink } from "../core/results";
 import { totalDurationMinutes } from "../core/tasks";
 import { formatOffset, wallToUtcMs, zoneOffsetMinutes } from "../core/time";
-import { send } from "../shared/messages";
+import { isContextAlive, send } from "../shared/messages";
 import type { CalendarContext, CreateResult, EventDraft, TaskRef } from "../shared/types";
 import { readGridOffset } from "./calendarGeometry";
 import { attachDrag } from "./drag";
@@ -20,10 +20,15 @@ import { Toasts, type ToastAction } from "./toast";
 import { detectTheme } from "./theme";
 
 function boot(): void {
-  if (document.querySelector("ttc-root")) return; // already injected (e.g. extension reload)
+  // A previous copy of this script may have left UI behind (e.g. injected again
+  // after an update). Keep our own build's UI; remove anything older.
+  const existing = document.querySelector<HTMLElement>("ttc-root");
+  if (existing?.dataset.build === __TTC_BUILD__) return;
+  for (const stale of document.querySelectorAll("ttc-root, ttc-rail-button, ttc-dock")) stale.remove();
 
   const host = document.createElement("ttc-root");
   host.style.cssText = "all: initial; position: fixed; top: 0; left: 0; width: 0; height: 0; z-index: 2147483000;";
+  host.dataset.build = __TTC_BUILD__;
   const shadow = host.attachShadow({ mode: "closed" });
   const root = h("div", { class: "ttc" });
   shadow.append(h("style", {}, BASE_CSS + PANEL_CSS + DRAG_CSS + POPOVER_CSS + TOAST_CSS), root);
@@ -70,6 +75,10 @@ function boot(): void {
   });
   attachDrag(panel.listElement, {
     begin(id) {
+      if (!isContextAlive()) {
+        panel.markStale();
+        return 0;
+      }
       panel.dispatch({ type: "dragStart", id });
       const tasks = panel.selectedTasks();
       session.start(tasks.length, totalDurationMinutes(tasks, panel.currentSettings.defaultDuration));
@@ -166,6 +175,14 @@ function boot(): void {
     }
     if (panel.open) void panel.refresh();
   }
+
+  // Notice an extension reload/update and switch the panel to a "reload this tab" state.
+  const watchdog = window.setInterval(() => {
+    if (isContextAlive()) return;
+    window.clearInterval(watchdog);
+    popover.close();
+    panel.markStale();
+  }, 2000);
 
   layout();
   window.addEventListener("resize", layout);

@@ -21,7 +21,9 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = 
 const svgParser = new DOMParser();
 /** Parse one of OUR static SVG strings (never user content). */
 export function svg(markup: string): SVGElement {
-  const doc = svgParser.parseFromString(markup, "image/svg+xml");
+  // Without the SVG namespace the XML parser yields inert, unrendered elements.
+  const withNs = markup.includes("xmlns=") ? markup : markup.replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" ');
+  const doc = svgParser.parseFromString(withNs, "image/svg+xml");
   return document.importNode(doc.documentElement, true) as unknown as SVGElement;
 }
 

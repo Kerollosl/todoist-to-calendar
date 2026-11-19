@@ -10,7 +10,7 @@ import { pushKeyHandler } from "./keys";
 const THRESHOLD_PX = 4;
 
 export interface DragHandlers {
-  /** The pointer passed the threshold on the row for task `id`. Return how many tasks are dragged. */
+  /** The pointer passed the threshold on the row for task `id`. Return how many tasks are dragged (0 aborts). */
   begin(id: string): number;
   move(x: number, y: number): void;
   drop(x: number, y: number): void;
@@ -63,9 +63,12 @@ export function attachDrag(list: HTMLElement, handlers: DragHandlers): void {
       if (event.pointerId !== pointerId) return;
       if (!dragging) {
         if (Math.hypot(event.clientX - startX, event.clientY - startY) < THRESHOLD_PX) return;
+        if (handlers.begin(id) === 0) {
+          finish();
+          return;
+        }
         dragging = true;
         list.classList.add("dragging");
-        handlers.begin(id);
       }
       handlers.move(event.clientX, event.clientY);
     };

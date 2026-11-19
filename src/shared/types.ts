@@ -78,7 +78,8 @@ export type ErrorKind =
   | "uncertain" // a mutation may or may not have happened
   | "google-not-configured" // no OAuth client ID built into the manifest
   | "google-auth" // could not get a Google token
-  | "bad-request"; // invalid message / input
+  | "bad-request" // invalid message / input
+  | "stale"; // this content script outlived an extension reload/update
 
 export interface ErrorInfo {
   kind: ErrorKind;

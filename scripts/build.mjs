@@ -61,6 +61,7 @@ async function copyStatic() {
 
 const shared = {
   bundle: true,
+  define: { __TTC_BUILD__: JSON.stringify(Date.now().toString(36)) },
   target: "chrome116",
   legalComments: "none",
   logLevel: "warning",
