@@ -27,6 +27,8 @@ export interface Api {
   "event/create": { req: { draft: EventDraft; complete: boolean }; res: CreateResult };
   "undo": { req: UndoRequest; res: UndoResult };
   "options/open": { req: Record<string, never>; res: null };
+  /** Dev builds only: reload the extension after a rebuild. */
+  "dev/reload": { req: Record<string, never>; res: null };
 }
 
 export type ApiType = keyof Api;
@@ -42,6 +44,7 @@ const TYPES: ReadonlySet<string> = new Set<ApiType>([
   "event/create",
   "undo",
   "options/open",
+  "dev/reload",
 ]);
 
 export function isApiRequest(message: unknown): message is ApiRequest {

@@ -14,6 +14,7 @@ import { installKeyFirewall, pushKeyHandler } from "./keys";
 import { DragOverlay } from "./overlay";
 import { Panel } from "./panel";
 import { ConfirmPopover, type SubmitOutcome } from "./popover";
+import { startDevReload } from "./devReload";
 import { createDock } from "./dock";
 import { createLauncher, type Launcher } from "./railButton";
 import { BASE_CSS, DRAG_CSS, PANEL_CSS, POPOVER_CSS, TOAST_CSS } from "./styles";
@@ -208,6 +209,7 @@ function boot(): void {
   });
   pushKeyHandler((event, fromUi) => panel.handleKey(event, fromUi));
   pushKeyHandler((event) => popover.handleKey(event));
+  startDevReload();
 }
 
 boot();

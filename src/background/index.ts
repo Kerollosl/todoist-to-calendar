@@ -30,6 +30,11 @@ const handlers: { [K in ApiType]?: Handler<K> } = {
     await chrome.runtime.openOptionsPage();
     return null;
   },
+  "dev/reload": async () => {
+    if (!__TTC_DEV__) throw new ApiError({ kind: "bad-request", message: "Not a dev build." });
+    setTimeout(() => chrome.runtime.reload(), 50);
+    return null;
+  },
 };
 
 /** Only our own content script on calendar.google.com and our own extension pages may call in. */

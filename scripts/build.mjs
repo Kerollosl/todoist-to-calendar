@@ -2,6 +2,7 @@
 // Builds the extension into dist/ (load that folder unpacked in Chrome).
 //
 //   node scripts/build.mjs           one-off build
+//   node scripts/build.mjs --dev     dev build: open Calendar tabs reload themselves on the next --dev build
 //   node scripts/build.mjs --watch   rebuild on change
 //
 // GOOGLE_CLIENT_ID is read from the environment or from .env. When it is set,
@@ -17,6 +18,9 @@ import path from "node:path";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dist = path.join(root, "dist");
 const watch = process.argv.includes("--watch");
+const dev = process.argv.includes("--dev");
+const BUILD_ID = Date.now().toString(36);
+const DEV_STAMP = "dev-build.txt";
 const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 
 async function readDotEnv() {
@@ -50,6 +54,11 @@ async function writeManifest() {
     }
     manifest.oauth2 = { client_id: clientId, scopes: [CALENDAR_SCOPE] };
   }
+  if (dev) {
+    // Only dev builds expose the stamp file the content script polls (see src/content/devReload.ts).
+    manifest.web_accessible_resources = [{ resources: [DEV_STAMP], matches: ["https://calendar.google.com/*"] }];
+    await writeFile(path.join(dist, DEV_STAMP), BUILD_ID);
+  }
   await writeFile(path.join(dist, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
   return { id: extensionIdFromKey(manifest.key), hasClientId: Boolean(clientId) };
 }
@@ -61,7 +70,7 @@ async function copyStatic() {
 
 const shared = {
   bundle: true,
-  define: { __TTC_BUILD__: JSON.stringify(Date.now().toString(36)) },
+  define: { __TTC_BUILD__: JSON.stringify(BUILD_ID), __TTC_DEV__: String(dev) },
   target: "chrome116",
   legalComments: "none",
   logLevel: "warning",
@@ -86,5 +95,5 @@ if (watch) {
   console.log(`Watching… dist/ is ready. Extension ID: ${id}`);
 } else {
   await Promise.all(entries.map((entry) => build({ ...shared, ...entry })));
-  console.log(`Built dist/  ·  extension ID ${id}  ·  Google client ID ${hasClientId ? "included" : "not set (Calendar API disabled; template fallback only)"}`);
+  console.log(`Built dist/${dev ? " (dev, auto-reload)" : ""}  ·  extension ID ${id}  ·  Google client ID ${hasClientId ? "included" : "not set (Calendar API disabled; template fallback only)"}`);
 }
