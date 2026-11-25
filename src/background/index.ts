@@ -7,12 +7,29 @@ import { ApiError, toErrorInfo } from "./errors";
 import * as flow from "./flow";
 import * as todoist from "./todoist";
 
+const PROJECTS_CACHE_KEY = "projectsCache";
+const PROJECTS_TTL_MS = 60_000;
+
+async function cachedProjects(): Promise<TodoistProject[]> {
+  try {
+    const { [PROJECTS_CACHE_KEY]: hit } = await chrome.storage.session.get(PROJECTS_CACHE_KEY);
+    const cached = hit as { at: number; projects: TodoistProject[] } | undefined;
+    if (cached && Array.isArray(cached.projects) && Date.now() - cached.at < PROJECTS_TTL_MS) return cached.projects;
+  } catch {
+    /* session storage unavailable: fall through to the network */
+  }
+  const projects = await todoist.listProjects();
+  void chrome.storage.session.set({ [PROJECTS_CACHE_KEY]: { at: Date.now(), projects } }).catch(() => {});
+  return projects;
+}
+
 type Handler<K extends ApiType> = (req: Api[K]["req"], sender: chrome.runtime.MessageSender) => Promise<Api[K]["res"]>;
 
 const handlers: { [K in ApiType]?: Handler<K> } = {
   "tasks/list": async ({ filter }) => {
-    // Re-fetch projects with every list so renamed or new projects show up.
-    const projects: TodoistProject[] = await todoist.listProjects();
+    // Projects are cached briefly so paging/refreshing doesn't refetch them each time,
+    // while renamed or new projects still show up within a minute.
+    const projects: TodoistProject[] = await cachedProjects();
     const sectionsFor = todoist.sectionProjectId(filter, projects);
     const [tasks, sections] = await Promise.all([
       todoist.listTasks(filter, projects),

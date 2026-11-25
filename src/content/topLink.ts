@@ -79,6 +79,7 @@ function placeLink(): void {
   if (bar !== observedBar) {
     resizeObserver.disconnect();
     observedBar = bar;
+    observeLayout(bar);
     if (bar) {
       resizeObserver.observe(bar);
       resizeObserver.observe(link);
@@ -124,6 +125,27 @@ const layoutObserver = new MutationObserver((records) => {
   if (records.some((record) => record.target !== host)) schedulePlacement();
 });
 
+const LAYOUT_ATTRS = ["class", "style", "hidden", "aria-hidden", "aria-modal", "inert", "open"];
+
+// Watch the header itself once it is found; elsewhere only the rare signals that can
+// hide it (dialogs opening, hidden/inert toggles). Until a header is found, fall back
+// to watching the whole document. Header removal is caught by the ResizeObserver.
+function observeLayout(bar: Element | undefined): void {
+  layoutObserver.disconnect();
+  if (!link.hasAttribute("href")) return;
+  if (!bar) {
+    layoutObserver.observe(document.documentElement, {
+      subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: LAYOUT_ATTRS,
+    });
+    return;
+  }
+  layoutObserver.observe(bar, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: LAYOUT_ATTRS });
+  layoutObserver.observe(document.documentElement, {
+    subtree: true, attributes: true, attributeFilter: ["hidden", "aria-hidden", "aria-modal", "inert", "open"],
+  });
+  if (document.body) layoutObserver.observe(document.body, { childList: true });
+}
+
 function syncTheme(): void {
   const theme = detectTheme();
   if (host.dataset.theme !== theme) host.dataset.theme = theme;
@@ -142,13 +164,7 @@ async function render(): Promise<void> {
   link.textContent = view.label; // textContent only
   link.title = view.href;
   syncTheme();
-  layoutObserver.observe(document.documentElement, {
-    subtree: true,
-    childList: true,
-    characterData: true,
-    attributes: true,
-    attributeFilter: ["class", "style", "hidden", "aria-hidden", "aria-modal", "inert", "open"],
-  });
+  observeLayout(observedBar);
   schedulePlacement();
 }
 
@@ -158,7 +174,10 @@ chrome.storage.onChanged.addListener((changes, area) => {
 window.navigation?.addEventListener("currententrychange", schedulePlacement);
 window.addEventListener("resize", schedulePlacement);
 document.addEventListener("scroll", schedulePlacement, { capture: true, passive: true });
-// Both apps switch theme without a reload; a cheap poll keeps the pill matching.
-setInterval(() => host.isConnected && syncTheme(), 3000);
+// Both apps switch theme without a reload by changing html/body class or style.
+const themeObserver = new MutationObserver(() => host.isConnected && syncTheme());
+for (const el of [document.documentElement, document.body]) {
+  if (el) themeObserver.observe(el, { attributes: true, attributeFilter: ["class", "style"] });
+}
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", syncTheme);
 void render();

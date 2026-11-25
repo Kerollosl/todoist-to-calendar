@@ -6,6 +6,7 @@
 //   [role="complementary"]              the side panel ("Side panel" label is localized; not used)
 //     [role="tablist"]                  the rail
 //       [role="tab"][data-guest-app-id] Keep, Tasks, Contacts, Maps  ← we insert after the last one
+import { isContextAlive } from "../shared/messages";
 import { icon } from "./dom";
 import { RAIL_CSS } from "./styles";
 import type { Theme } from "./theme";
@@ -101,7 +102,15 @@ export function createLauncher(opts: {
 
   // First check after createLauncher has returned: onLayoutChange may use the launcher.
   queueMicrotask(tick);
-  setInterval(tick, TICK_MS);
+  // Stop polling once this script is orphaned by an extension reload; skip hidden tabs.
+  const timer = setInterval(() => {
+    if (!isContextAlive()) {
+      clearInterval(timer);
+      observer.disconnect();
+      return;
+    }
+    if (!document.hidden) tick();
+  }, TICK_MS);
   window.addEventListener("resize", () => tick());
 
   return {
