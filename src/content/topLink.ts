@@ -5,7 +5,8 @@ import { getSettings } from "../shared/settings";
 import { detectTheme } from "./theme";
 
 const IS_CALENDAR = location.hostname === "calendar.google.com";
-const CALENDAR_VIEW = /^\/calendar\/(?:u\/\d+\/)?r(?:\/(?:day|week|month|year|agenda|customday)(?:\/\d+){0,3})?\/?$/;
+// "custom" is the N-day view, e.g. /r/custom/4/d or /r/custom/4/d/2026/11/25.
+const CALENDAR_VIEW = /^\/calendar\/(?:u\/\d+\/)?r(?:\/(?:day|week|month|year|agenda|customday|custom)(?:\/\w+){0,5})?\/?$/;
 const BAR_SELECTOR = IS_CALENDAR
   ? 'header[role="banner"]'
   : '#content header, main header, [role="main"] header, .view_header';
@@ -42,11 +43,23 @@ function isVisible(element: Element): boolean {
 function findBar(): Element | undefined {
   if (IS_CALENDAR ? !CALENDAR_VIEW.test(location.pathname) : !/^\/app(?:\/|$)/.test(location.pathname)) return;
   if ([...document.querySelectorAll('dialog[open], [aria-modal="true"]')].some(isVisible)) return;
-  return [...document.querySelectorAll(BAR_SELECTOR)].find((element) => {
-    if (element.closest('aside, nav, [role="dialog"], [aria-hidden="true"], [inert]') || !isVisible(element)) return false;
+  for (const candidate of document.querySelectorAll(BAR_SELECTOR)) {
+    if (candidate.closest('aside, nav, [role="dialog"], [aria-hidden="true"], [inert]')) continue;
+    const element = layoutBox(candidate);
+    if (!element || !isVisible(element)) continue;
     const { top, bottom } = element.getBoundingClientRect();
-    return top < (IS_CALENDAR ? window.innerHeight : 56) && bottom > 0;
-  });
+    if (top < (IS_CALENDAR ? window.innerHeight : 56) && bottom > 0) return element;
+  }
+}
+
+// Todoist's <header> is display: contents (no box of its own, verified 2026-11-25),
+// so measure and attach to its first child that actually renders.
+function layoutBox(element: Element): Element | undefined {
+  if (getComputedStyle(element).display !== "contents") return element;
+  for (const child of element.children) {
+    const box = layoutBox(child);
+    if (box && box.getBoundingClientRect().width > 0) return box;
+  }
 }
 
 function hasRoom(bar: Element, pill: DOMRect): boolean {
